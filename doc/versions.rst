@@ -8,8 +8,10 @@ Changes since the last version
 
 The newest version, including changes since the last release, can be obtained using ``git checkout master``.
 
-Right now, there are no changes beyond the last release.
-Maybe there are some feature branches waiting to be explored.
+.. Right now, there are no changes beyond the last release.
+   Maybe there are some feature branches waiting to be explored.
+
+- feature to calculate the covariance matrix of the resulting spectral function in Gaussian approximation
 
 
 Version 0.9, 2018-08-24
