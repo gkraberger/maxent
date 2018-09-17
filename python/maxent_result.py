@@ -954,7 +954,8 @@ class MaxEntResult(MaxEntResultData):
         def get_covariance(r):
             c = r.ddH()
             dA_dH = r.A_of_H.d()
-            dA_dH[np.where(dA_dH < 1.e-100)] = 1.e-100
+            if not isinstance(dA_dH, float):
+                dA_dH[np.where(dA_dH < 1.e-100)] = 1.e-100
             dH_dA = 1.0 / np.transpose(dA_dH)
             c = np.dot(np.transpose(dH_dA), np.dot(c, dH_dA))
             return np.linalg.pinv(c)
