@@ -937,6 +937,30 @@ class MaxEntResult(MaxEntResultData):
         return self._forevery(lambda r: r.f())
 
     @saved
+    def covariance(self):
+        r""" The covariance matrix (in Gaussian approximation) of :math:`A`
+
+        When using this together with preblur, you might instead
+        want to get the covariance matrix of :math:`H`, which is not
+        implemented.
+
+        The covariance matrix in Gaussian approximation is given by
+
+        .. math::
+
+            (C^{-1})_{ij} = \frac{\partial Q}{\partial A_i \partial A_j}.
+        """
+
+        def get_covariance(r):
+            c = r.ddH()
+            dA_dH = r.A_of_H.d()
+            dA_dH[np.where(dA_dH < 1.e-100)] = 1.e-100
+            dH_dA = 1.0 / np.transpose(dA_dH)
+            c = np.dot(np.transpose(dH_dA), np.dot(c, dH_dA))
+            return np.linalg.pinv(c)
+        return self._forevery(lambda r: get_covariance(r))
+
+    @saved
     def omega(self):
         r""" The :math:`\omega` values """
 
