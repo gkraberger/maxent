@@ -114,3 +114,41 @@ assert (S_matrix.dd().shape == (2, 2, 100, 100))
 d2 = S_matrix.dd()
 for i, j in product(range(2), range(2)):
     assert np.max(np.abs(S_elements[i, j].dd() - d2[i, j])) < 1.e-13
+
+v = np.random.rand(2, 2, len(K.S))
+
+H_of_v_elements = dict()
+H_elements = dict()
+for i, j in product(range(2), range(2)):
+    if i == j:
+        H_of_v_elements[i, j] = NormalH_of_v(D=D, K=K)
+    else:
+        H_of_v_elements[i, j] = PlusMinusH_of_v(D=D, K=K)
+    H_elements[i, j] = H_of_v_elements[i, j](v[i, j])
+
+H_of_v_matrix = MatrixH_of_v(D=MatrixDefaultModel((2, 2), D), K=K)
+H_matrix = H_of_v_matrix(v.reshape(-1))
+
+assert H_matrix.f().shape == (2, 2, 100)
+f1 = H_matrix.f()
+for i, j in product(range(2), range(2)):
+    assert np.max(np.abs(H_elements[i, j].f() - f1[i, j])) < 1.e-13
+
+print(H_matrix.d().shape)
+assert H_matrix.d().shape == (2, 2, 100, 400)
+d1 = H_matrix.d()
+for i, j in product(range(2), range(2)):
+    linin = slice(200 * i + 100 * j, 200 * i + 100 * j + 100)
+    assert np.max(np.abs(H_elements[i, j].d() -
+                         d1[i, j, :, linin])) < 1.e-13
+
+assert (H_matrix.dd().shape == (2, 2, 100, 400, 400))
+d2 = H_matrix.dd()
+for i, j in product(range(2), range(2)):
+    linin = slice(200 * i + 100 * j, 200 * i + 100 * j + 100)
+    assert np.max(np.abs(H_elements[i, j].dd() -
+                         d2[i, j, :, linin, linin])) < 1.e-13
+
+# TODO inv
+
+# TODO check_der

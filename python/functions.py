@@ -671,7 +671,6 @@ class GenericH_of_v(DoublyDerivableFunction, InvertibleFunction):
     def __init__(self, D=None, K=None):
         self._D = D
         self._K = K
-        self._B = 1.0
         self.parameter_change()
 
     ####### Helper functions #######

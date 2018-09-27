@@ -26,6 +26,7 @@ from __future__ import absolute_import, print_function
 import numpy as np
 from .maxent_util import *
 from .functions import *
+from itertools import product
 
 
 class GenericMatrix():
@@ -41,6 +42,10 @@ class GenericMatrix():
         i.e., for matrix elements :math:`M_{ij}` where :math:`j \le i`.
         The default value is ``False``.
     """
+
+    def __init__(self):
+        # for sphinx
+        pass
 
     def _forevery(self, fun, H):
         """ Apply a function to all elements of the matrix ``H``
@@ -145,7 +150,7 @@ class MatrixChi2(Chi2, GenericMatrix):
 
 
 class MatrixEntropy(Entropy, GenericMatrix):
-    r""" The entry for matrix-valued H
+    r""" The entropy for matrix-valued H
 
     In this function, an important (but usually valid) assumption is made
     that reduces computation time in a typical MaxEnt calculation; namely
@@ -168,8 +173,8 @@ class MatrixEntropy(Entropy, GenericMatrix):
         the class that shall be used for the off-diagonal elements (this should
         be the class type rather than a class instance); default is
         :py:class:`.PlusMinusEntropy`
-    D : :py:class:`.MatrixEntropy`
-        the entropy to use
+    D : :py:class:`.MatrixDefaultModel`
+        the default model to use
     """
 
     def __init__(self, base_entropy=None, base_entropy_offd=None, D=None):
@@ -190,6 +195,7 @@ class MatrixEntropy(Entropy, GenericMatrix):
         for i in range(self.D.matrix_dims[0]):
             for j in range(self.D.matrix_dims[1]):
                 self.sub[i][j].D = self.D[i, j]
+                self.sub[i][j].parameter_change()
 
     @cached
     def f(self, H):
@@ -203,3 +209,73 @@ class MatrixEntropy(Entropy, GenericMatrix):
     @cached
     def dd(self, H):
         return self._forevery('dd', H)
+
+
+class MatrixH_of_v(GenericH_of_v, GenericMatrix):
+    r""" The mapping H(v) for matrix-valued H
+
+    Parameters
+    ----------
+    base_H_of_v: GenericH_of_v
+        the class that shall be used for the diagonal elements (this should
+        be the class type rather than a class instance); default is
+        :py:class:`.NormalH_of_v`
+    base_H_of_v_offd : GenericH_of_v
+        the class that shall be used for the off-diagonal elements (this should
+        be the class type rather than a class instance); default is
+        :py:class:`.PlusMinusH_of_v`
+    D : :py:class:`.MatrixDefaultModel`
+        the default model to use
+    K : :py:class:`.Kernel`
+        the kernel to use (only one kernel, this does not have the matrix
+        structure of ``G``)
+    """
+
+    def __init__(self, base_H_of_v=None, base_H_of_v_offd=None,
+                 D=None, K=None):
+        if base_H_of_v is None:
+            base_H_of_v = NormalH_of_v
+        self.base_H_of_v = base_H_of_v
+        if base_H_of_v_offd is None:
+            base_H_of_v_offd = PlusMinusH_of_v
+        self.base_H_of_v_offd = base_H_of_v_offd
+        GenericH_of_v.__init__(self, D=D, K=K)
+
+    def parameter_change(self):
+        if self.D is None or self.K is None:
+            return
+        self.sub = [[self.base_H_of_v() if i == j else self.base_H_of_v_offd()
+                     for j in range(self.D.matrix_dims[1])]
+                    for i in range(self.D.matrix_dims[0])]
+        for i in range(self.D.matrix_dims[0]):
+            for j in range(self.D.matrix_dims[1]):
+                self.sub[i][j].D = self.D[i, j]
+                self.sub[i][j].K = self.K
+                self.sub[i][j].parameter_change()
+
+    @cached
+    def f(self, v):
+        return self._forevery('f', v.reshape(self.D.matrix_dims + (-1,)))
+
+    @cached
+    def d(self, v):
+        fe = self._forevery('d', v.reshape(self.D.matrix_dims + (-1,)))
+        ret = np.zeros(fe.shape[:3] + self.D.matrix_dims + (fe.shape[-1],),
+                       dtype=fe.dtype)
+        for i, j in product(*list(map(range, self.D.matrix_dims))):
+            ret[i, j, :, i, j, :] = fe[i, j]
+        return ret.reshape(fe.shape[:3] + (-1,))
+
+    @cached
+    def dd(self, v):
+        fe = self._forevery('dd', v.reshape(self.D.matrix_dims + (-1,)))
+        ret = np.zeros(fe.shape[:3] + self.D.matrix_dims + (fe.shape[-1],) +
+                       self.D.matrix_dims + (fe.shape[-1],), dtype=fe.dtype)
+        for i, j in product(*list(map(range, self.D.matrix_dims))):
+            ret[i, j, :, i, j, :, i, j, :] = fe[i, j]
+        pind = self.D.matrix_dims[0] * self.D.matrix_dims[1] * fe.shape[-1]
+        return ret.reshape(fe.shape[:3] + (pind, pind))
+
+    @cached
+    def inv(self, H):
+        return self._forevery('inv', H).reshape(-1)
