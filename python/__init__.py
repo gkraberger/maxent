@@ -20,6 +20,7 @@
 from .alpha_meshes import *
 from .default_models import *
 from .functions import *
+from .matrix_functions import *
 from .kernels import *
 from .logtaker import *
 from .maxent_loop import *

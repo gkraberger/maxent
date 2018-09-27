@@ -50,6 +50,7 @@ This is the reference manual for the python routines.
    reference/probabilities
    reference/logtaker
    reference/functions
+   reference/matrix_functions
    reference/kernels
    reference/default_models
    reference/omega_meshes
