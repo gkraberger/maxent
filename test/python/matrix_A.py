@@ -86,3 +86,31 @@ assert (c2_matrix.dd().shape == (2, 2, 100, 100))
 d2 = c2_matrix.dd()
 for i, j in product(range(2), range(2)):
     assert np.max(np.abs(c2_elements[i, j].dd() - d2[i, j])) < 1.e-13
+
+D = FlatDefaultModel(omega=omega)
+
+entropy_elements = dict()
+S_elements = dict()
+for i, j in product(range(2), range(2)):
+    if i == j:
+        entropy_elements[i, j] = NormalEntropy(D=D)
+    else:
+        entropy_elements[i, j] = PlusMinusEntropy(D=D)
+    S_elements[i, j] = entropy_elements[i, j](A[i, j])
+
+entropy_matrix = MatrixEntropy(D=MatrixDefaultModel((2, 2), D))
+S_matrix = entropy_matrix(A)
+
+calc1 = S_matrix.f()
+calc2 = sum(map(lambda e: e[1].f(), S_elements.iteritems()))
+assert (np.abs(calc1 - calc2)) < 1.e-13
+
+assert S_matrix.d().shape == (2, 2, 100)
+d1 = S_matrix.d()
+for i, j in product(range(2), range(2)):
+    assert np.max(np.abs(S_elements[i, j].d() - d1[i, j])) < 1.e-13
+
+assert (S_matrix.dd().shape == (2, 2, 100, 100))
+d2 = S_matrix.dd()
+for i, j in product(range(2), range(2)):
+    assert np.max(np.abs(S_elements[i, j].dd() - d2[i, j])) < 1.e-13

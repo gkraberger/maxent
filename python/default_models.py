@@ -42,7 +42,7 @@ class BaseDefaultModel(object):
         raise NotImplemented("Use a subclass of BaseDefaultModel")
 
     def __len__(self):
-        return len(self._D)
+        return len(self.D)
 
 
 class FlatDefaultModel(BaseDefaultModel):
@@ -113,3 +113,32 @@ class FileDefaultModel(DataDefaultModel):
                                                     default=data[:, 1],
                                                     omega_in=data[:, 0],
                                                     omega=omega)
+
+
+class MatrixDefaultModel(BaseDefaultModel):
+    """ A default model for matrices
+
+    Parameters
+    ----------
+    matrix_dims = tuple
+        the matrix dimensions
+
+    """
+
+    def __init__(self, matrix_dims, D):
+        self.matrix_dims = matrix_dims
+        self.base_default_model = D
+
+    @property
+    def D(self):
+        return self.base_default_model.D
+
+    @property
+    def omega(self):
+        return self.base_default_model.omega
+
+    def __getitem__(self, key):
+        return self.base_default_model
+
+    def _fill_values(self):
+        self.D._fill_values()

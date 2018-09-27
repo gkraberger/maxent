@@ -72,7 +72,7 @@ class GenericMatrix():
 
 
 class MatrixChi2(Chi2, GenericMatrix):
-    r""" The misfit for matrix-values H
+    r""" The misfit for matrix-valued H
 
     In this function, an important (but usually valid) assumption is made
     that reduces computation time in a typical MaxEnt calculation; namely
@@ -133,6 +133,67 @@ class MatrixChi2(Chi2, GenericMatrix):
     @cached
     def f(self, H):
         ret = np.array(self._forevery('f', H))
+        return np.sum(ret)
+
+    @cached
+    def d(self, H):
+        return self._forevery('d', H)
+
+    @cached
+    def dd(self, H):
+        return self._forevery('dd', H)
+
+
+class MatrixEntropy(Entropy, GenericMatrix):
+    r""" The entry for matrix-valued H
+
+    In this function, an important (but usually valid) assumption is made
+    that reduces computation time in a typical MaxEnt calculation; namely
+    that
+
+    .. math::
+
+        \frac{\partial^2 S}{\partial A^{ab}_i \partial A^{cd}_j} \sim \delta_{ac} \delta_{bd},
+
+    where :math:`a, \dots, d` are matrix indices and :math:`i, j` are
+    other indices (typically the omega values).
+
+    Parameters
+    ----------
+    base_entropy : Entropy
+        the class that shall be used for the diagonal elements (this should
+        be the class type rather than a class instance); default is
+        :py:class:`.NormalEntropy`
+    base_entropy_offd : Entropy
+        the class that shall be used for the off-diagonal elements (this should
+        be the class type rather than a class instance); default is
+        :py:class:`.PlusMinusEntropy`
+    D : :py:class:`.MatrixEntropy`
+        the entropy to use
+    """
+
+    def __init__(self, base_entropy=None, base_entropy_offd=None, D=None):
+        if base_entropy is None:
+            base_entropy = NormalEntropy
+        self.base_entropy = base_entropy
+        if base_entropy_offd is None:
+            base_entropy_offd = PlusMinusEntropy
+        self.base_entropy_offd = base_entropy_offd
+        Entropy.__init__(self, D)
+
+    def parameter_change(self):
+        if self.D is None:
+            return
+        self.sub = [[self.base_entropy() if i == j else self.base_entropy_offd()
+                     for j in range(self.D.matrix_dims[1])]
+                    for i in range(self.D.matrix_dims[0])]
+        for i in range(self.D.matrix_dims[0]):
+            for j in range(self.D.matrix_dims[1]):
+                self.sub[i][j].D = self.D[i, j]
+
+    @cached
+    def f(self, H):
+        ret = self._forevery('f', H)
         return np.sum(ret)
 
     @cached
