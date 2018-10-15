@@ -228,6 +228,17 @@ class MatrixEntropy(Entropy, GenericMatrix):
 class MatrixH_of_v_small(GenericH_of_v, GenericMatrix):
     r""" The mapping H(v) for matrix-valued H
 
+    In this function, an important (but usually valid) assumption is made
+    that reduces computation time in a typical calculation; namely
+    that
+
+    .. math::
+
+        \frac{\partial^2 H^{ab}}{\partial v^{cd}_i \partial v^{ef}_j} \sim \delta_{ac} \delta_{ae} \delta_{bd} \delta_{bf},
+
+    where :math:`a, \dots, f` are matrix indices and :math:`i, j` are
+    other indices (typically the values in singular space).
+
     Parameters
     ----------
     base_H_of_v: GenericH_of_v
@@ -286,7 +297,7 @@ class MatrixH_of_v_small(GenericH_of_v, GenericMatrix):
         return self._forevery('inv', H).reshape(-1)
 
 
-class MatrixH_of_v(GenericH_of_v, GenericMatrix):
+class MatrixH_of_v(MatrixH_of_v_small):
     r""" The mapping H(v) for matrix-valued H
 
     Parameters
@@ -308,33 +319,16 @@ class MatrixH_of_v(GenericH_of_v, GenericMatrix):
 
     def __init__(self, base_H_of_v=None, base_H_of_v_offd=None,
                  D=None, K=None):
-        if base_H_of_v is None:
-            base_H_of_v = NormalH_of_v
-        self.base_H_of_v = base_H_of_v
-        if base_H_of_v_offd is None:
-            base_H_of_v_offd = PlusMinusH_of_v
-        self.base_H_of_v_offd = base_H_of_v_offd
-        GenericH_of_v.__init__(self, D=D, K=K)
-
-    def parameter_change(self):
-        if self.D is None or self.K is None:
-            return
-        self.sub = [[self.base_H_of_v() if i == j else self.base_H_of_v_offd()
-                     for j in range(self.D.matrix_dims[1])]
-                    for i in range(self.D.matrix_dims[0])]
-        for i in range(self.D.matrix_dims[0]):
-            for j in range(self.D.matrix_dims[1]):
-                self.sub[i][j].D = self.D[i, j]
-                self.sub[i][j].K = self.K
-                self.sub[i][j].parameter_change()
+        super(MatrixH_of_v, self).__init__(base_H_of_v,
+                                           base_H_of_v_offd, D, K)
 
     @cached
     def f(self, v):
-        return self._forevery('f', v.reshape(self.D.matrix_dims + (-1,)))
+        return super(MatrixH_of_v, self).f(v)
 
     @cached
     def d(self, v):
-        fe = self._forevery('d', v.reshape(self.D.matrix_dims + (-1,)))
+        fe = super(MatrixH_of_v, self).d(v)
         ret = np.zeros(fe.shape[:3] + self.D.matrix_dims + (fe.shape[-1],),
                        dtype=fe.dtype)
         for i, j in product(*list(map(range, self.D.matrix_dims))):
@@ -343,7 +337,7 @@ class MatrixH_of_v(GenericH_of_v, GenericMatrix):
 
     @cached
     def dd(self, v):
-        fe = self._forevery('dd', v.reshape(self.D.matrix_dims + (-1,)))
+        fe = super(MatrixH_of_v, self).dd(v)
         ret = blowup_matrix(False, self.D.matrix_dims, fe)
         for i, j in product(*list(map(range, self.D.matrix_dims))):
             ret[i, j, :, i, j, :, i, j, :] = fe[i, j]
@@ -352,7 +346,7 @@ class MatrixH_of_v(GenericH_of_v, GenericMatrix):
 
     @cached
     def inv(self, H):
-        return self._forevery('inv', H).reshape(-1)
+        return super(MatrixH_of_v, self).inv(H)
 
 
 class MatrixSquareH_of_v(MatrixH_of_v_small):
