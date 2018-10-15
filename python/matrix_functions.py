@@ -225,6 +225,67 @@ class MatrixEntropy(Entropy, GenericMatrix):
         return self._forevery('dd', H)
 
 
+class MatrixH_of_v_small(GenericH_of_v, GenericMatrix):
+    r""" The mapping H(v) for matrix-valued H
+
+    Parameters
+    ----------
+    base_H_of_v: GenericH_of_v
+        the class that shall be used for the diagonal elements (this should
+        be the class type rather than a class instance); default is
+        :py:class:`.NormalH_of_v`
+    base_H_of_v_offd : GenericH_of_v
+        the class that shall be used for the off-diagonal elements (this should
+        be the class type rather than a class instance); default is
+        :py:class:`.PlusMinusH_of_v`
+    D : :py:class:`.MatrixDefaultModel`
+        the default model to use
+    K : :py:class:`.Kernel`
+        the kernel to use (only one kernel, this does not have the matrix
+        structure of ``G``)
+    """
+
+    def __init__(self, base_H_of_v=None, base_H_of_v_offd=None,
+                 D=None, K=None):
+        if base_H_of_v is None:
+            base_H_of_v = NormalH_of_v
+        self.base_H_of_v = base_H_of_v
+        if base_H_of_v_offd is None:
+            base_H_of_v_offd = PlusMinusH_of_v
+        self.base_H_of_v_offd = base_H_of_v_offd
+        GenericH_of_v.__init__(self, D=D, K=K)
+
+    def parameter_change(self):
+        if self.D is None or self.K is None:
+            return
+        self.sub = [[self.base_H_of_v() if i == j else self.base_H_of_v_offd()
+                     for j in range(self.D.matrix_dims[1])]
+                    for i in range(self.D.matrix_dims[0])]
+        for i in range(self.D.matrix_dims[0]):
+            for j in range(self.D.matrix_dims[1]):
+                self.sub[i][j].D = self.D[i, j]
+                self.sub[i][j].K = self.K
+                self.sub[i][j].parameter_change()
+
+    @cached
+    def f(self, v):
+        return self._forevery('f', v.reshape(self.D.matrix_dims + (-1,)))
+
+    @cached
+    def d(self, v):
+        fe = self._forevery('d', v.reshape(self.D.matrix_dims + (-1,)))
+        return fe
+
+    @cached
+    def dd(self, v):
+        fe = self._forevery('dd', v.reshape(self.D.matrix_dims + (-1,)))
+        return fe
+
+    @cached
+    def inv(self, H):
+        return self._forevery('inv', H).reshape(-1)
+
+
 class MatrixH_of_v(GenericH_of_v, GenericMatrix):
     r""" The mapping H(v) for matrix-valued H
 
@@ -294,7 +355,7 @@ class MatrixH_of_v(GenericH_of_v, GenericMatrix):
         return self._forevery('inv', H).reshape(-1)
 
 
-class MatrixSquareH_of_v(MatrixH_of_v):
+class MatrixSquareH_of_v(MatrixH_of_v_small):
 
     def __init__(self, base_H_of_v=None, base_H_of_v_offd=None,
                  D=None, K=None, l_only=False):
@@ -313,20 +374,36 @@ class MatrixSquareH_of_v(MatrixH_of_v):
     def d(self, v):
         B = super(MatrixSquareH_of_v, self).f(v)
         dB_dv = super(MatrixSquareH_of_v, self).d(v)
-        dH_dv = np.einsum('abij,cbi->acij', dB_dv, B.conjugate())
-        dH_dv += dH_dv.conjugate().transpose([1, 0, 2, 3])
-        return dH_dv
+        dH_dv = np.zeros(
+            B.shape + B.shape[:2] + (dB_dv.shape[-1],), dtype=dB_dv.dtype)
+        for m in range(B.shape[0]):
+            h = np.einsum('bij,cbi->cibj', dB_dv[m], B.conjugate())
+            dH_dv[m, :, :, m, :, :] += h
+            dH_dv[:, m, :, m, :, :] += h.conjugate()
+        return dH_dv.reshape(B.shape + (-1,))
 
     @cached
     def dd(self, v):
         B = super(MatrixSquareH_of_v, self).f(v)
         dB_dv = super(MatrixSquareH_of_v, self).d(v)
         ddB_dvdv = super(MatrixSquareH_of_v, self).dd(v)
-        ddH_dvdv = np.zeros(B.shape + v.shape + v.shape, dtype=dB_dv.dtype)
-        ddH_dvdv = np.einsum('abijk,cbi->acijk', ddB_dvdv, B.conjugate())
-        ddH_dvdv += np.einsum('abij,cbik->acijk', dB_dv, dB_dv.conjugate())
-        ddH_dvdv += ddH_dvdv.conjugate().transpose([1, 0, 2, 3, 4])
-        return ddH_dvdv
+        ddH_dvdv = np.zeros(B.shape + B.shape[:2] + (dB_dv.shape[-1],) + B.shape[
+                            :2] + (dB_dv.shape[-1],), dtype=dB_dv.dtype)
+        for a in range(B.shape[0]):
+            for d in range(B.shape[1]):
+                h = np.einsum('kjl,bk->bkjl',
+                              ddB_dvdv[a, d, :, :, :], B[:, d, :].conjugate())
+                ddH_dvdv[a, :, :, a, d, :, a, d, :] += h
+                for b in range(B.shape[1]):
+                    k = np.einsum('kj,kl->kjl',
+                                  dB_dv[a, d, :, :],
+                                  dB_dv[b, d, :, :].conjugate())
+                    ddH_dvdv[a, b, :, a, d, :, b, d, :] += k
+                    ddH_dvdv[a, b, :, b, d, :, a, d, :] += \
+                        k.transpose([0, 2, 1])
+                b = a
+                ddH_dvdv[:, b, :, b, d, :, b, d, :] += h.conjugate()
+        return ddH_dvdv.reshape(B.shape + v.shape + v.shape)
 
     @cached
     def inv(self, H):

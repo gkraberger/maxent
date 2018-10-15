@@ -155,11 +155,72 @@ for i, j in product(range(2), range(2)):
     assert np.max(np.abs(H_elements[i, j].dd() -
                          d2[i, j, :, linin, linin])) < 1.e-13
 
+
+H_of_v_matrix_s = MatrixH_of_v_small(D=MatrixDefaultModel((2, 2), D), K=K)
+H_matrix_s = H_of_v_matrix_s(v.reshape(-1))
+
+assert H_matrix_s.f().shape == (2, 2, 100)
+f1 = H_matrix_s.f()
+for i, j in product(range(2), range(2)):
+    assert np.max(np.abs(H_elements[i, j].f() - f1[i, j])) < 1.e-13
+
+assert H_matrix_s.d().shape == (2, 2, 100, 100)
+d1 = H_matrix_s.d()
+for i, j in product(range(2), range(2)):
+    assert np.max(np.abs(H_elements[i, j].d() - d1[i, j])) < 1.e-13
+
+assert (H_matrix_s.dd().shape == (2, 2, 100, 100, 100))
+d2 = H_matrix_s.dd()
+for i, j in product(range(2), range(2)):
+    assert np.max(np.abs(H_elements[i, j].dd() - d2[i, j])) < 1.e-13
+
+
 # TODO inv
 
 # TODO check_der
 
-H_of_v_matrix2 = MatrixSquareH_of_v(D=MatrixDefaultModel((2, 2), D), K=K)
+class MatrixSquareH_of_v_slow(MatrixH_of_v):
+
+    def __init__(self, base_H_of_v=None, base_H_of_v_offd=None,
+                 D=None, K=None, l_only=False):
+
+        self.l_only = l_only
+        super(MatrixSquareH_of_v_slow, self).__init__(base_H_of_v,
+                                                      base_H_of_v_offd, D, K)
+
+    @cached
+    def f(self, v):
+        B = super(MatrixSquareH_of_v_slow, self).f(v)
+        H = np.einsum('abi,cbi->aci', B, B.conjugate())
+        return H
+
+    @cached
+    def d(self, v):
+        B = super(MatrixSquareH_of_v_slow, self).f(v)
+        dB_dv = super(MatrixSquareH_of_v_slow, self).d(v)
+        dH_dv = np.einsum('abij,cbi->acij', dB_dv, B.conjugate())
+        dH_dv += dH_dv.conjugate().transpose([1, 0, 2, 3])
+        return dH_dv
+
+    @cached
+    def dd(self, v):
+        B = super(MatrixSquareH_of_v_slow, self).f(v)
+        dB_dv = super(MatrixSquareH_of_v_slow, self).d(v)
+        ddB_dvdv = super(MatrixSquareH_of_v_slow, self).dd(v)
+        ddH_dvdv = np.zeros(B.shape + v.shape + v.shape, dtype=dB_dv.dtype)
+        ddH_dvdv = np.einsum('abijk,cbi->acijk', ddB_dvdv, B.conjugate())
+        ddH_dvdv += np.einsum('abij,cbik->acijk', dB_dv, dB_dv.conjugate())
+        ddH_dvdv += ddH_dvdv.conjugate().transpose([1, 0, 2, 3, 4])
+        return ddH_dvdv
+
+    @cached
+    def inv(self, H):
+        B = np.zeros(H.shape, dtype=H.dtype)
+        for i_w in range(H.shape[2]):
+            B[:, :, i_w] = np.linalg.cholesky(H[:, :, i_w])
+        return super(MatrixSquareH_of_v_slow, self).inv(B)
+
+H_of_v_matrix2 = MatrixSquareH_of_v_slow(D=MatrixDefaultModel((2, 2), D), K=K)
 H_matrix2 = H_of_v_matrix2(v.reshape(-1))
 
 assert H_matrix2.f().shape == (2, 2, 100)
@@ -169,3 +230,18 @@ assert H_matrix2.d().shape == (2, 2, 100, 400)
 assert (H_matrix2.dd().shape == (2, 2, 100, 400, 400))
 
 assert H_of_v_matrix2.check_derivatives(v.reshape(-1))
+
+
+H_of_v_matrix3 = MatrixSquareH_of_v(D=MatrixDefaultModel((2, 2), D), K=K)
+H_matrix3 = H_of_v_matrix3(v.reshape(-1))
+
+assert H_matrix3.f().shape == (2, 2, 100)
+assert np.max(np.abs(H_matrix2.f() - H_matrix3.f())) < 1.e-13
+
+assert H_matrix3.d().shape == (2, 2, 100, 400)
+assert np.max(np.abs(H_matrix2.d() - H_matrix3.d())) < 1.e-13
+
+assert (H_matrix3.dd().shape == (2, 2, 100, 400, 400))
+assert np.max(np.abs(H_matrix2.dd() - H_matrix3.dd())) < 1.e-13
+
+assert H_of_v_matrix3.check_derivatives(v.reshape(-1))
