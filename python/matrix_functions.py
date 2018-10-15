@@ -29,6 +29,20 @@ from .functions import *
 from itertools import product
 
 
+def blowup_matrix(scalar, matrix_dims, fe):
+    if scalar:
+        ret = np.zeros(fe.shape[:3] + matrix_dims + (fe.shape[-1],),
+                       dtype=fe.dtype)
+        for i, j in product(*list(map(range, matrix_dims))):
+            ret[i, j, :, i, j, :] = fe[i, j]
+    else:
+        ret = np.zeros(fe.shape[:3] + matrix_dims + (fe.shape[-1],) +
+                       matrix_dims + (fe.shape[-1],), dtype=fe.dtype)
+        for i, j in product(*list(map(range, matrix_dims))):
+            ret[i, j, :, i, j, :, i, j, :] = fe[i, j]
+    return ret
+
+
 class GenericMatrix():
     r""" A function depending on matrices
 
@@ -269,8 +283,7 @@ class MatrixH_of_v(GenericH_of_v, GenericMatrix):
     @cached
     def dd(self, v):
         fe = self._forevery('dd', v.reshape(self.D.matrix_dims + (-1,)))
-        ret = np.zeros(fe.shape[:3] + self.D.matrix_dims + (fe.shape[-1],) +
-                       self.D.matrix_dims + (fe.shape[-1],), dtype=fe.dtype)
+        ret = blowup_matrix(False, self.D.matrix_dims, fe)
         for i, j in product(*list(map(range, self.D.matrix_dims))):
             ret[i, j, :, i, j, :, i, j, :] = fe[i, j]
         pind = self.D.matrix_dims[0] * self.D.matrix_dims[1] * fe.shape[-1]
@@ -279,3 +292,45 @@ class MatrixH_of_v(GenericH_of_v, GenericMatrix):
     @cached
     def inv(self, H):
         return self._forevery('inv', H).reshape(-1)
+
+
+class MatrixSquareH_of_v(MatrixH_of_v):
+
+    def __init__(self, base_H_of_v=None, base_H_of_v_offd=None,
+                 D=None, K=None, l_only=False):
+
+        self.l_only = l_only
+        super(MatrixSquareH_of_v, self).__init__(base_H_of_v,
+                                                 base_H_of_v_offd, D, K)
+
+    @cached
+    def f(self, v):
+        B = super(MatrixSquareH_of_v, self).f(v)
+        H = np.einsum('abi,cbi->aci', B, B.conjugate())
+        return H
+
+    @cached
+    def d(self, v):
+        B = super(MatrixSquareH_of_v, self).f(v)
+        dB_dv = super(MatrixSquareH_of_v, self).d(v)
+        dH_dv = np.einsum('abij,cbi->acij', dB_dv, B.conjugate())
+        dH_dv += dH_dv.conjugate().transpose([1, 0, 2, 3])
+        return dH_dv
+
+    @cached
+    def dd(self, v):
+        B = super(MatrixSquareH_of_v, self).f(v)
+        dB_dv = super(MatrixSquareH_of_v, self).d(v)
+        ddB_dvdv = super(MatrixSquareH_of_v, self).dd(v)
+        ddH_dvdv = np.zeros(B.shape + v.shape + v.shape, dtype=dB_dv.dtype)
+        ddH_dvdv = np.einsum('abijk,cbi->acijk', ddB_dvdv, B.conjugate())
+        ddH_dvdv += np.einsum('abij,cbik->acijk', dB_dv, dB_dv.conjugate())
+        ddH_dvdv += ddH_dvdv.conjugate().transpose([1, 0, 2, 3, 4])
+        return ddH_dvdv
+
+    @cached
+    def inv(self, H):
+        B = np.zeros(H.shape, dtype=H.dtype)
+        for i_w in range(H.shape[2]):
+            B[:, :, i_w] = np.linalg.cholesky(H[:, :, i_w])
+        return super(MatrixSquareH_of_v, self).inv(B)

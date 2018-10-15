@@ -149,7 +149,8 @@ class DoublyDerivableFunction(CachedFunction):
         """ second derivative """
         raise NotImplementedError()
 
-    def check_derivatives(self, around, renorm=False, prec=1.e-8):
+    def check_derivatives(self, around, renorm=False, prec=1.e-8,
+                          extra_func_d=None, extra_func_dd=None):
         """ check derivatives using numerical derivation
 
         Parameters
@@ -169,25 +170,31 @@ class DoublyDerivableFunction(CachedFunction):
         success : bool
             whether the test passed (True) or not (False)
         """
-        d_success = self.check_d(around, renorm, prec)
-        dd_success = self.check_dd(around, renorm, prec)
+        d_success = self.check_d(around, renorm, prec, extra_func_d)
+        dd_success = self.check_dd(around, renorm, prec, extra_func_dd)
         return (d_success and dd_success)
 
-    def check_d(self, around, renorm=False, prec=1.e-8):
+    def check_d(self, around, renorm=False, prec=1.e-8, extra_func=None):
         """ check first derivative
 
         see :py:meth:`.check_derivatives`
         """
-        return check_der(self.f, self.d, around, renorm, prec,
+        d = self.d
+        if extra_func is not None:
+            d = lambda *args, **kwargs: extra_func(self.d(*args, **kwargs))
+        return check_der(self.f, d, around, renorm, prec,
                          "1st derivative " + type(self).__name__)
 
-    def check_dd(self, around, renorm=False, prec=1.e-8):
+    def check_dd(self, around, renorm=False, prec=1.e-8, extra_func=None):
         """ check second derivative
 
         see :py:meth:`.check_derivatives`
         """
 
-        return check_der(self.d, self.dd, around, renorm, prec,
+        dd = self.dd
+        if extra_func is not None:
+            dd = lambda *args, **kwargs: extra_func(self.dd(*args, **kwargs))
+        return check_der(self.d, dd, around, renorm, prec,
                          "2nd derivative " + type(self).__name__)
 
 

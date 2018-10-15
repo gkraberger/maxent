@@ -70,6 +70,8 @@ c2_elements = dict()
 for i, j in product(range(2), range(2)):
     chi2_elements[i, j] = NormalChi2(K=K, G=G[i, j], err=err[i, j])
     c2_elements[i, j] = chi2_elements[i, j](A[i, j])
+    assert chi2_elements[i, j].check_derivatives(
+        A[i, j] * 0.1, chi2_elements[i, j].f(A[i, j] * 0.1))
 
 chi2_matrix = MatrixChi2(K=K, G=G, err=err)
 c2_matrix = chi2_matrix(A)
@@ -86,6 +88,11 @@ assert (c2_matrix.dd().shape == (2, 2, 100, 100))
 d2 = c2_matrix.dd()
 for i, j in product(range(2), range(2)):
     assert np.max(np.abs(c2_elements[i, j].dd() - d2[i, j])) < 1.e-13
+
+bu = lambda x: blowup_matrix(True, (2, 2), x)
+
+assert chi2_matrix.check_derivatives(
+    A * 0.1, chi2_matrix.f(A * 0.1), extra_func_dd=bu)
 
 D = FlatDefaultModel(omega=omega)
 
@@ -134,7 +141,6 @@ f1 = H_matrix.f()
 for i, j in product(range(2), range(2)):
     assert np.max(np.abs(H_elements[i, j].f() - f1[i, j])) < 1.e-13
 
-print(H_matrix.d().shape)
 assert H_matrix.d().shape == (2, 2, 100, 400)
 d1 = H_matrix.d()
 for i, j in product(range(2), range(2)):
@@ -152,3 +158,14 @@ for i, j in product(range(2), range(2)):
 # TODO inv
 
 # TODO check_der
+
+H_of_v_matrix2 = MatrixSquareH_of_v(D=MatrixDefaultModel((2, 2), D), K=K)
+H_matrix2 = H_of_v_matrix2(v.reshape(-1))
+
+assert H_matrix2.f().shape == (2, 2, 100)
+
+assert H_matrix2.d().shape == (2, 2, 100, 400)
+
+assert (H_matrix2.dd().shape == (2, 2, 100, 400, 400))
+
+assert H_of_v_matrix2.check_derivatives(v.reshape(-1))
