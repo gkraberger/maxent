@@ -225,7 +225,7 @@ class MatrixEntropy(Entropy, GenericMatrix):
         return self._forevery('dd', H)
 
 
-class MatrixH_of_v_small(GenericH_of_v, GenericMatrix):
+class _MatrixH_of_v_small(GenericH_of_v, GenericMatrix):
     r""" The mapping H(v) for matrix-valued H
 
     In this function, an important (but usually valid) assumption is made
@@ -238,6 +238,10 @@ class MatrixH_of_v_small(GenericH_of_v, GenericMatrix):
 
     where :math:`a, \dots, f` are matrix indices and :math:`i, j` are
     other indices (typically the values in singular space).
+
+    .. warning::
+
+        Do not use this class for MaxEnt.
 
     Parameters
     ----------
@@ -297,7 +301,7 @@ class MatrixH_of_v_small(GenericH_of_v, GenericMatrix):
         return self._forevery('inv', H).reshape(-1)
 
 
-class MatrixH_of_v(MatrixH_of_v_small):
+class MatrixH_of_v(_MatrixH_of_v_small):
     r""" The mapping H(v) for matrix-valued H
 
     Parameters
@@ -349,7 +353,7 @@ class MatrixH_of_v(MatrixH_of_v_small):
         return super(MatrixH_of_v, self).inv(H)
 
 
-class MatrixSquareH_of_v(MatrixH_of_v_small):
+class MatrixSquareH_of_v(_MatrixH_of_v_small):
 
     def __init__(self, base_H_of_v=None, base_H_of_v_offd=None,
                  D=None, K=None, l_only=False):

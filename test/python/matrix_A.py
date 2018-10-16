@@ -20,6 +20,7 @@
 from __future__ import absolute_import, print_function
 import numpy as np
 from triqs_maxent import *
+from triqs_maxent.matrix_functions import _MatrixH_of_v_small
 from triqs_maxent.triqs_support import *
 from itertools import product
 
@@ -156,7 +157,7 @@ for i, j in product(range(2), range(2)):
                          d2[i, j, :, linin, linin])) < 1.e-13
 
 
-H_of_v_matrix_s = MatrixH_of_v_small(D=MatrixDefaultModel((2, 2), D), K=K)
+H_of_v_matrix_s = _MatrixH_of_v_small(D=MatrixDefaultModel((2, 2), D), K=K)
 H_matrix_s = H_of_v_matrix_s(v.reshape(-1))
 
 assert H_matrix_s.f().shape == (2, 2, 100)
@@ -245,3 +246,25 @@ assert (H_matrix3.dd().shape == (2, 2, 100, 400, 400))
 assert np.max(np.abs(H_matrix2.dd() - H_matrix3.dd())) < 1.e-13
 
 assert H_of_v_matrix3.check_derivatives(v.reshape(-1))
+
+#######################################################################
+# MaxEnt with matrix G(tau)
+#######################################################################
+Q = MaxEntCostFunction(chi2=chi2_matrix,
+                       S=entropy_matrix,
+                       H_of_v=H_of_v_matrix3,
+                       d_dv=True)
+Q.set_alpha(1.0)
+
+assert Q.dH(v).shape == (2, 2, 100)
+assert Q.d(v).shape == (400,)
+
+assert Q.ddH(v).shape == (2, 2, 100, 100)
+assert Q.dd(v).shape == (400, 400)
+
+assert Q.check_derivatives(v.reshape(-1), Q.f(v.reshape(-1)))
+
+Q.d_dv = False
+Q.dA_projection = 0
+
+assert Q.check_dd(v.reshape(-1), Q.f(v.reshape(-1)))

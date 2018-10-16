@@ -140,26 +140,89 @@ class MaxEntCostFunction(CostFunction):
             vector in singular space giving the solution
         """
 
-        ddQ_dHdH = self.ddH(v)
         dH_dv = self.H_of_v.d(v)
-        n_index_H = np.prod(dH_dv.shape[:-1])
-        ddQ_dHdH = ddQ_dHdH.reshape((n_index_H, n_index_H))
-        dH_dv = dH_dv.reshape((n_index_H, -1))
+
+        if dH_dv.ndim == 2:  # (N, M) -> no matrix, not complex
+            A = 1
+            B = 1
+            N, M = dH_dv.shape
+            C = 1
+        elif dH_dv.ndim == 3:  # (N, C, M) -> no matrix, complex
+            A = 1
+            B = 1
+            N, C, M = dH_dv.shape
+        elif dH_dv.ndim == 4:  # (A, B, N, M) -> matrix, not complex
+            A, B, N, M = dH_dv.shape
+            C = 1
+        elif dH_dv.ndim == 5:  # (A, B, N, C, M) -> matrix, complex
+            A, B, N, C, M = dH_dv.shape
+        else:
+            raise Exception('Invalid number of dimensions in dH_dv')
+
+        dH_dv = dH_dv.reshape((A, B, N, C, M))
+
+        ddQ_dHdH = self.ddH(v)
+        if ddQ_dHdH.size == A * B * N * C * A * B * N * C:
+            ddQ_dHdH = ddQ_dHdH.reshape((A * B * N * C, A * B * N * C))
+            dH_dv = dH_dv.reshape((A * B * N * C, M))
+            Q_convention_full = True
+        elif ddQ_dHdH.size == A * B * N * C * N * C:
+            ddQ_dHdH = ddQ_dHdH.reshape((A, B, N * C, N * C))
+            dH_dv = dH_dv.reshape((A, B, N * C, M))
+            Q_convention_full = False
+        else:
+            raise Exception('Invalid shape of ddQ_dHdH')
 
         if self.d_dv:
-            dQ_dH = self.dH(v).reshape(-1)
-            ddH_dvdv = self.H_of_v.dd(v).reshape(
-                (-1, dH_dv.shape[-1], dH_dv.shape[-1]))
-            # we make use of the fact that the Jacobian is symmetric
-            retval = (np.dot(np.dot(ddQ_dHdH, dH_dv).transpose(), dH_dv) +
-                      np.einsum('k,kij->ij', dQ_dH, ddH_dvdv))
-        else:
-            if self.dA_projection == 1:
-                # TODO
-                retval = np.dot(self.chi2.K.V.conjugate().transpose(),
-                                np.dot(ddQ_dHdH, dH_dv))
-            elif self.dA_projection == 2:
-                retval = np.dot(dH_dv.transpose(), np.dot(ddQ_dHdH, dH_dv))
+            dQ_dH = self.dH(v).reshape((A * B * N * C,))
+            ddH_dvdv = self.H_of_v.dd(v).reshape((A * B * N * C, M, M))
+            if Q_convention_full:
+                # we make use of the fact that the Jacobian is symmetric
+                return (np.dot(np.dot(ddQ_dHdH, dH_dv).transpose(), dH_dv) +
+                        np.einsum('k,kij->ij', dQ_dH, ddH_dvdv))
             else:
-                retval = np.dot(ddQ_dHdH, dH_dv)
-        return retval
+                retval = np.zeros((M, M),
+                                  dtype=np.find_common_type([ddQ_dHdH.dtype,
+                                                             dH_dv.dtype], []))
+                for a in range(A):
+                    for b in range(B):
+                        retval += np.dot(np.dot(ddQ_dHdH[a, b],
+                                                dH_dv[a, b]).transpose(),
+                                         dH_dv[a, b])
+                retval += np.einsum('k,kij->ij', dQ_dH, ddH_dvdv)
+                return retval
+        else:
+            if self.dA_projection == 2:
+                if Q_convention_full:
+                    return np.dot(dH_dv.transpose(), np.dot(ddQ_dHdH, dH_dv))
+                else:
+                    retval = np.zeros((M, M), dtype=np.find_common_type(
+                        [ddQ_dHdH.dtype, dH_dv.dtype], []))
+
+                    for a in range(A):
+                        for b in range(B):
+                            retval += np.dot(dH_dv[a, b].transpose(),
+                                             np.dot(ddQ_dHdH[a, b], dH_dv[a, b]))
+                    return retval
+            else:
+                if Q_convention_full:
+                    retval = np.dot(ddQ_dHdH, dH_dv)
+                else:
+                    retval = np.zeros((A, B, N * C, M), dtype=np.find_common_type(
+                        [ddQ_dHdH.dtype, dH_dv.dtype], []))
+                    for a in range(A):
+                        for b in range(B):
+                            retval[a, b] += np.dot(ddQ_dHdH[a, b], dH_dv[a, b])
+
+                if self.dA_projection == 1:
+                    assert len(self.chi2.K.S) * A * B * C == M
+                    retval = retval.reshape((A, B, N, C, M))
+                    for a in range(A):
+                        for b in range(B):
+                            for c in range(C):
+                                retval[a, b, :, c, :] = np.dot(
+                                    self.chi2.K.V.conjugate().transpose(),
+                                    retval[a, b, :, c, :])
+                    return retval.reshape((M, M))
+                else:
+                    return retval.reshape((A * B * N * C, M))

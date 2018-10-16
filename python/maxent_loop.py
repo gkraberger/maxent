@@ -184,13 +184,14 @@ class MaxEntLoop(object):
         self.K.reduce_singular_space(self.reduce_singular_space)
 
         # calculate minimal chi2
-        A_min = np.linalg.lstsq(self.K.K, self.G, rcond=-1)[0]
-        if(np.any(np.iscomplex(A_min))):
-            A_min = view_real(A_min)
-        chi2_min = self.chi2(A_min).f()
-        self.logtaker.message(VerbosityFlags.Header,
-                              "Minimal chi2: {}",
-                              chi2_min)
+        if self.G.ndim == 1:
+            A_min = np.linalg.lstsq(self.K.K, self.G, rcond=-1)[0]
+            if(np.any(np.iscomplex(A_min))):
+                A_min = view_real(A_min)
+            chi2_min = self.chi2(A_min).f()
+            self.logtaker.message(VerbosityFlags.Header,
+                                  "Minimal chi2: {}",
+                                  chi2_min)
 
         # the initial value of v
         H = np.empty(self.chi2.input_size)
