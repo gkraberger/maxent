@@ -268,3 +268,25 @@ Q.d_dv = False
 Q.dA_projection = 0
 
 assert Q.check_dd(v.reshape(-1), Q.f(v.reshape(-1)))
+
+Q.dA_projection = 2
+
+logtaker = Logtaker()
+
+minimizer = LevenbergMinimizer(maxiter=10000)
+
+alpha_values = LogAlphaMesh(alpha_max=6000, alpha_min=8, n_points=5)
+
+ml = MaxEntLoop(cost_function=Q, minimizer=minimizer,
+                alpha_mesh=alpha_values, logtaker=logtaker)
+# the following is just for the test, so that it does not take forever
+ml.minimizer.convergence = (MaxDerivativeConvergenceMethod(1.e-4) |
+                            RelativeFunctionChangeConvergenceMethod(1.e-6))
+result_matrix = ml.run()
+
+if not if_no_triqs():
+    from pytriqs.archive import HDFArchive
+    with HDFArchive('matrix_A.h5', 'a') as ar:
+        ar['result_matrix'] = result_matrix.data
+else:
+    result_matrix.data
