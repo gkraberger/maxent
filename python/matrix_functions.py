@@ -162,6 +162,10 @@ class MatrixChi2(Chi2, GenericMatrix):
     def dd(self, H):
         return self._forevery('dd', H)
 
+    @property
+    def axes_preference(self):
+        return (2, 0, 1)
+
 
 class MatrixEntropy(Entropy, GenericMatrix):
     r""" The entropy for matrix-valued H
@@ -223,6 +227,14 @@ class MatrixEntropy(Entropy, GenericMatrix):
     @cached
     def dd(self, H):
         return self._forevery('dd', H)
+
+    @property
+    def input_size(self):
+        return self.D.matrix_dims + (len(self.D.D),)
+
+    @property
+    def axes_preference(self):
+        return (2, 0, 1)
 
 
 class _MatrixH_of_v_small(GenericH_of_v, GenericMatrix):

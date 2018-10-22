@@ -333,7 +333,7 @@ class Chi2(DoublyDerivableFunction):
 
     @property
     def input_size(self):
-        return (self.K.K.shape[1],)
+        return self.G.shape[:-1] + (self.K.K.shape[1],)
 
     @property
     def axes_preference(self):
@@ -437,7 +437,7 @@ class ComplexChi2(Chi2):
 
     @property
     def input_size(self):
-        return (self.K.K.shape[1], 2)
+        return self.G.shape[:-1] + (self.K.K.shape[1], 2)
 
     @property
     def axes_preference(self):
