@@ -641,8 +641,9 @@ class ShiftedAbsoluteEntropy(Entropy):
     """ The entropy with ``|A|+D`` """
     @cached
     def f(self, A):
-        return np.sum((np.abs(A) + self.D.D - self.D.D - (np.abs(A) + \
-                      self.D.D) * safelog((np.abs(A) + self.D.D) / self.D.D)))
+        return np.sum((np.abs(A) + self.D.D - self.D.D -
+                       (np.abs(A) + self.D.D) *
+                       safelog((np.abs(A) + self.D.D) / self.D.D)))
 
     @cached
     def d(self, A):

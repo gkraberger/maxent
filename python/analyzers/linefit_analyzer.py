@@ -25,6 +25,7 @@ if not hasattr(np, 'full'):
     # polyfill full for older numpy:
     np.full = lambda a, f: np.zeros(a) + f
 
+
 def fit_piecewise(logx, logy, p2_deg=0):
     """ piecewise linear fit (e.g. for chi2)
 
