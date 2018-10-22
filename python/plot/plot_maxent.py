@@ -216,7 +216,7 @@ class PlotMaxEnt(object):
         if ':' in quantity:
             analyzer, quantity = quantity.split(': ')
             ar = self._result.analyzer_results
-            if elem is not None:
+            if elem is not None and self._result.element_wise:
                 ar = self._get_ar_i(elem)
             return getattr(ar[analyzer], "plot_" + quantity), ar[analyzer]
         else:

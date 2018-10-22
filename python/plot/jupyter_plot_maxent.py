@@ -94,7 +94,7 @@ class JupyterPlotMaxEnt(object):
         if ':' in quantity:
             analyzer, quantity = quantity.split(': ')
             ar = self.result.analyzer_results
-            if elem is not None:
+            if elem is not None and self.result.element_wise:
                 ar = self._get_ar_i(elem)
             try:
                 return getattr(ar[analyzer], "plot_" + quantity), ar[analyzer]

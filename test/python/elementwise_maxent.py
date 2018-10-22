@@ -143,8 +143,13 @@ pm.alpha_mesh = LogAlphaMesh(alpha_min=0.05, alpha_max=500, n_points=8)
 pm.set_error(noise)
 result_pm_herm = pm.run()
 
-# We check whether we can call .data
-result_pm_herm.data
+if if_triqs_1() or if_triqs_2():
+    from pytriqs.archive import HDFArchive
+    with HDFArchive('elementwise_maxent.h5', 'a') as ar:
+        ar['result_pm_herm'] = result_pm_herm.data
+else:
+    # We check whether we can call .data
+    result_pm_herm.data
 
 assert np.all(result_ew_herm.A_out[0, 1] == result_ew_herm.A_out[1, 0]), \
     "hermiticity does not work correcly"

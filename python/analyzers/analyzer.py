@@ -21,6 +21,7 @@ from __future__ import absolute_import, print_function
 from ..plot_utils import *
 import sys
 import numpy as np
+from collections import OrderedDict
 
 
 class AnalyzerResult(dict):
@@ -64,7 +65,7 @@ class AnalyzerResult(dict):
         return maxent_result
 
     @plot_function
-    def plot_A_out(self, maxent_result=None, **kwargs):
+    def plot_A_out(self, maxent_result=None, element=None, **kwargs):
         """ Plot the spectral function
 
         Parameters
@@ -85,12 +86,17 @@ class AnalyzerResult(dict):
             whether the y-axis should be log-scaled (default: False)
         """
         maxent_result = self._get_maxent_result(maxent_result)
-        return (maxent_result.omega, self['A_out'],
-                dict(label=r'$A(\omega)$ {}'.format(self['name']),
-                     x_label=r'$\omega$',
-                     y_label=r'$A(\omega)$',
-                     log_x=False,
-                     log_y=False))
+        idx = (slice(None)
+               if element is None or maxent_result.element_wise
+               else element)
+        return (maxent_result.omega, self['A_out'][idx],
+                maxent_result._add_matrix_structure_to_dict(
+                OrderedDict(label=r'$A(\omega)$ {}'.format(self['name']),
+                            x_label=r'$\omega$',
+                            y_label=r'$A(\omega)$',
+                            log_x=False,
+                            log_y=False),
+                check_element_wise=False))
 
     @plot_function
     def plot_curvature(self, maxent_result=None, **kwargs):
@@ -118,11 +124,11 @@ class AnalyzerResult(dict):
 
         maxent_result = self._get_maxent_result(maxent_result)
         return (maxent_result.alpha, self['curvature'],
-                dict(label=r'curvature {}'.format(self['name']),
-                     x_label=r'$\alpha$',
-                     y_label=r'curvature',
-                     log_x=True,
-                     log_y=False))
+                OrderedDict(label=r'curvature {}'.format(self['name']),
+                            x_label=r'$\alpha$',
+                            y_label=r'curvature',
+                            log_x=True,
+                            log_y=False))
 
     @plot_function
     def plot_dS_dalpha(self, maxent_result=None, **kwargs):
@@ -150,11 +156,11 @@ class AnalyzerResult(dict):
 
         maxent_result = self._get_maxent_result(maxent_result)
         return (maxent_result.alpha, self['dS_dalpha'],
-                dict(label=r'dS_dalpha {}'.format(self['name']),
-                     x_label=r'$\alpha$',
-                     y_label=r'dS_dalpha',
-                     log_x=True,
-                     log_y=False))
+                OrderedDict(label=r'dS_dalpha {}'.format(self['name']),
+                            x_label=r'$\alpha$',
+                            y_label=r'dS_dalpha',
+                            log_x=True,
+                            log_y=False))
 
     @plot_function
     def plot_linefit(self, maxent_result=None, element=None, **kwargs):
@@ -186,11 +192,11 @@ class AnalyzerResult(dict):
                 np.column_stack((maxent_result.chi2[idx],
                                  np.exp(np.polyval(self['linefit_params'][0], np.log(maxent_result.alpha))),
                                  np.exp(np.polyval(self['linefit_params'][1], np.log(maxent_result.alpha))))),
-                dict(label=r'linefit {}'.format(self['name']),
-                     x_label=r'$\alpha$',
-                     y_label=r'linefit',
-                     log_x=True,
-                     log_y=True))
+                OrderedDict(label=r'linefit {}'.format(self['name']),
+                            x_label=r'$\alpha$',
+                            y_label=r'linefit',
+                            log_x=True,
+                            log_y=True))
 
 try:
     from pytriqs.archive.hdf_archive_schemes import register_class

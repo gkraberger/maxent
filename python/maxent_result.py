@@ -372,10 +372,25 @@ class MaxEntResultData(object):
         This adds the keys ``n_m``, ``n_n`` and possibly ``n_c`` (for
         complex elements) to the dict ``d`` holding the size of the
         ``matrix_structure``.
+
+        Parameters
+        ----------
+        d : dict
+            the dict where it should be added
+        check_element_wise : bool
+            if True, it is only added if self.element_wise == True;
+            if False, it is only added if self.element_wise == False;
+            if None, it is added irrespective of the value of
+            self.element_wise
         """
         dnew = OrderedDict()
-        if self.matrix_structure is not None and (
-                (not check_element_wise) or self.element_wise):
+        if check_element_wise is None:
+            elw = True
+        elif check_element_wise is True:
+            elw = self.element_wise
+        elif check_element_wise is False:
+            elw = not self.element_wise
+        if self.matrix_structure is not None and elw:
             dnew['n_m'] = self.matrix_structure[0]
             dnew['n_n'] = self.matrix_structure[1]
             if self.complex_elements:
@@ -498,7 +513,7 @@ class MaxEntResultData(object):
                     log_y=False,
                     n_alpha_index=len(
                         self.alpha)),
-                check_element_wise=False))
+                check_element_wise=None))
 
     @plot_function
     def plot_G(self, element=None, **kwargs):
@@ -525,9 +540,10 @@ class MaxEntResultData(object):
         """
 
         idx = slice(None) if element is None else element
-        return (self.data_variable[idx],
-                self.G_orig[idx],
-                self._add_matrix_structure_to_dict(
+        return (
+            self.data_variable[idx] if self.element_wise else self.data_variable,
+            self.G_orig[idx],
+            self._add_matrix_structure_to_dict(
                 OrderedDict(
                     label=r'$G(d)$',
                     x_label=r'$d$',
@@ -535,7 +551,7 @@ class MaxEntResultData(object):
                     log_x=False,
                     log_y=False,
                 ),
-                check_element_wise=False))
+                check_element_wise=None))
 
     @plot_function
     def plot_G_rec(self, element=None, alpha_index=0, plot_G=True, **kwargs):
@@ -567,17 +583,20 @@ class MaxEntResultData(object):
                                             element=element,
                                             **kwargs))
         idx = slice(None) if element is None else element
-        ret.append((self.data_variable[idx],
-                    self.G_rec[idx][alpha_index],
-                    self._add_matrix_structure_to_dict(
-            OrderedDict(label=r'$G_{rec}(d)$',
-                        x_label=r'$d$',
-                        y_label=r'$G(d)$',
-                        log_x=False,
-                        log_y=False,
-                        plot_G=True,
-                        n_alpha_index=len(self.alpha)),
-            check_element_wise=False)))
+        ret.append(
+            (self.data_variable[idx] if self.element_wise else self.data_variable,
+             self.G_rec[idx][alpha_index] if self.element_wise else self.G_rec[alpha_index][idx],
+             self._add_matrix_structure_to_dict(
+                OrderedDict(
+                    label=r'$G_{rec}(d)$',
+                    x_label=r'$d$',
+                    y_label=r'$G(d)$',
+                    log_x=False,
+                    log_y=False,
+                    plot_G=True,
+                    n_alpha_index=len(
+                        self.alpha)),
+                check_element_wise=None)))
         return ret
 
     @plot_function
@@ -902,9 +921,10 @@ class MaxEntResult(MaxEntResultData):
     def data_variable(self):
         r""" The Green function data variable (e.g. tau for :math:`G(\tau)`)
 
-        For a matrix dimension ``M x N``, the number of alphas ``X``,
+        For a matrix dimension ``M x N``
         and the number of data-variables ``T``,
-        this is a ``M x N x X x T`` object. For missing values, np.nan is used.
+        this is a ``M x N x T`` object if ``element_wise=True``, else
+        it is a ``T`` object. For missing values, np.nan is used.
         """
         if self.element_wise:
             return self._forevery(lambda r: r.chi2.data_variable)[..., 0, :]
