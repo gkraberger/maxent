@@ -290,3 +290,23 @@ if not if_no_triqs():
         ar['result_matrix'] = result_matrix.data
 else:
     result_matrix.data
+
+data = result_matrix.data
+assert data.A.shape == (5, 2, 2, 100)
+assert data.G.shape == (2, 2, 100)
+assert data.G_orig.shape == (2, 2, 100)
+assert data.G_rec.shape == (5, 2, 2, 100)
+assert data.H.shape == (5, 2, 2, 100)
+assert data.Q.shape == (5, )
+assert data.S.shape == (5, )
+assert data.alpha.shape == (5, )
+assert data.chi2.shape == (5, )
+assert data.complex_elements == False
+assert data.data_variable.shape == (100, )
+assert data.effective_matrix_structure == (2, 2)
+assert data.element_wise == False
+assert data.matrix_structure == (2, 2)
+assert data.omega.shape == (100, )
+assert data.probability.shape == (5, )
+assert data.v.shape == (5, 4 * len(Q.chi2.K.S))
+assert data.A_out.shape == (2, 2, 100)
