@@ -419,5 +419,8 @@ class MatrixSquareH_of_v(_MatrixH_of_v_small):
     def inv(self, H):
         B = np.zeros(H.shape, dtype=H.dtype)
         for i_w in range(H.shape[2]):
-            B[:, :, i_w] = np.linalg.cholesky(H[:, :, i_w])
+            # we add 1.e-14 * I for making positive semi-definite matrices
+            # positive definite
+            B[:, :, i_w] = np.linalg.cholesky(
+                H[:, :, i_w] + 1.e-14 * np.eye(H.shape[0]))
         return super(MatrixSquareH_of_v, self).inv(B)
