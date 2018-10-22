@@ -205,7 +205,13 @@ class MaxEntLoop(object):
 
         # set up result
         if result is None:
-            result = MaxEntResult()
+            matrix_structure = None
+            element_wise = True
+            if len(self.chi2.G.shape) >= 3:
+                matrix_structure = self.chi2.G.shape[:2]
+                element_wise = False
+            result = MaxEntResult(matrix_structure=matrix_structure,
+                                  element_wise=element_wise)
 
         # set the default analyzer name to the first analyzer
         if result._default_analyzer_name is None:
@@ -218,7 +224,7 @@ class MaxEntLoop(object):
             scale_alpha = 1.0
         elif isinstance(self.scale_alpha, str):
             if self.scale_alpha.lower() == "ndata":
-                scale_alpha = len(self.G)
+                scale_alpha = self.G.size
             else:
                 raise Exception(
                     "Unknown value {} for scale_alpha".format(
