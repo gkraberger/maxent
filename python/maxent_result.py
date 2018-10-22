@@ -486,18 +486,19 @@ class MaxEntResultData(object):
         """
 
         idx = slice(None) if element is None else element
-        return (self.omega,
-                self.A[idx][alpha_index],
-                self._add_matrix_structure_to_dict(
-                    OrderedDict(
-                        label=r'$A_{{\alpha_{}}}(\omega)$'.format(alpha_index),
-                        x_label=r'$\omega$',
-                        y_label=r'$A(\omega)$',
-                        log_x=False,
-                        log_y=False,
-                        n_alpha_index=len(
-                            self.alpha)),
-                    check_element_wise=False))
+        return (
+            self.omega,
+            self.A[idx][alpha_index] if self.element_wise else self.A[alpha_index][idx],
+            self._add_matrix_structure_to_dict(
+                OrderedDict(
+                    label=r'$A_{{\alpha_{}}}(\omega)$'.format(alpha_index),
+                    x_label=r'$\omega$',
+                    y_label=r'$A(\omega)$',
+                    log_x=False,
+                    log_y=False,
+                    n_alpha_index=len(
+                        self.alpha)),
+                check_element_wise=False))
 
     @plot_function
     def plot_G(self, element=None, **kwargs):
@@ -876,7 +877,10 @@ class MaxEntResult(MaxEntResultData):
         In the case of an extra transformation (see :py:meth:`.TauMaxEnt.set_cov`)
         this is the transformed G.
         """
-        return self._forevery(lambda r: r.chi2.G)[..., 0, :]
+        if self._element_wise:
+            return self._forevery(lambda r: r.chi2.G)[..., 0, :]
+        else:
+            return self._forevery(lambda r: r.chi2.G)[0]
 
     @saved
     def G_orig(self):
@@ -889,7 +893,10 @@ class MaxEntResult(MaxEntResultData):
         In the case of an extra transformation (see :py:meth:`.TauMaxEnt.set_cov`)
         this is the original G.
         """
-        return self._forevery(lambda r: r.G_orig)[..., 0, :]
+        if self._element_wise:
+            return self._forevery(lambda r: r.G_orig)[..., 0, :]
+        else:
+            return self._forevery(lambda r: r.G_orig)[0]
 
     @saved
     def data_variable(self):
@@ -899,12 +906,21 @@ class MaxEntResult(MaxEntResultData):
         and the number of data-variables ``T``,
         this is a ``M x N x X x T`` object. For missing values, np.nan is used.
         """
-        return self._forevery(lambda r: r.chi2.data_variable)[..., 0, :]
+        if self.element_wise:
+            return self._forevery(lambda r: r.chi2.data_variable)[..., 0, :]
+        else:
+            return self._forevery(lambda r: r.chi2.data_variable)[0]
 
     @saved
     def G_rec(self):
         """ The reconstructed Green function :math:`G_{rec}`. """
-        return self._forevery(lambda r: np.dot(r.chi2.K.K_delta, r.A_of_H.f()))
+        def calc_G_rec(r):
+            K = r.chi2.K.K_delta
+            A = r.A_of_H.f()
+            if A.ndim == 3:
+                return np.einsum('ij,abj->abi', K, A)
+            return np.dot(K, A)
+        return self._forevery(calc_G_rec)
 
     @saved
     def S(self):
