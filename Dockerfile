@@ -2,6 +2,7 @@
 FROM flatironinstitute/triqs:master-ubuntu-clang
 
 RUN apt-get install -y python-decorator || yum install -y python-decorator
+RUN apt-get install -y python-autopep8 || yum install -y python-autopep8
 
 ARG APPNAME
 COPY . $SRC/$APPNAME
