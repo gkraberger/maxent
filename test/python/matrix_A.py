@@ -62,7 +62,7 @@ for i in range(2):
         assert np.abs(np.trapz(A[i, j], omega) -
                       (1 if i == j else 0)) < 1.e-14, "A not normalized"
 
-G = np.einsum('ij,abj', K.K, A)
+G = np.einsum('ij,abj', K.K_delta, A)
 G += 1.e-4 * np.random.randn(*G.shape)
 err = 1.e-4 * np.ones(G.shape)
 
@@ -90,7 +90,7 @@ d2 = c2_matrix.dd()
 for i, j in product(range(2), range(2)):
     assert np.max(np.abs(c2_elements[i, j].dd() - d2[i, j])) < 1.e-13
 
-bu = lambda x: blowup_matrix(True, (2, 2), x)
+bu = lambda x: blowup_matrix(True, x)
 
 assert chi2_matrix.check_derivatives(
     A * 0.1, chi2_matrix.f(A * 0.1), extra_func_dd=bu)

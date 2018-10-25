@@ -29,17 +29,17 @@ from .functions import *
 from itertools import product
 
 
-def blowup_matrix(scalar, matrix_dims, fe):
-    if scalar:
-        ret = np.zeros(fe.shape[:3] + matrix_dims + (fe.shape[-1],),
-                       dtype=fe.dtype)
-        for i, j in product(*list(map(range, matrix_dims))):
-            ret[i, j, :, i, j, :] = fe[i, j]
-    else:
-        ret = np.zeros(fe.shape[:3] + matrix_dims + (fe.shape[-1],) +
-                       matrix_dims + (fe.shape[-1],), dtype=fe.dtype)
-        for i, j in product(*list(map(range, matrix_dims))):
-            ret[i, j, :, i, j, :, i, j, :] = fe[i, j]
+def blowup_matrix(scalar, fe):
+    matrix_dims = fe.shape[:2]
+    n_rep = 2 if scalar else 3
+    non_matrix_dims = fe.shape[2:][:(fe.ndim - 2) / n_rep]
+    N_per_matrix = np.prod(non_matrix_dims)
+    ret = np.zeros((matrix_dims + (N_per_matrix,)) * n_rep,
+                   dtype=fe.dtype)
+    for i, j in product(*list(map(range, matrix_dims))):
+        ret[(i, j, slice(None)) * n_rep] = \
+            fe[i, j].reshape((N_per_matrix, ) * n_rep)
+    ret = ret.reshape((matrix_dims + non_matrix_dims) * n_rep)
     return ret
 
 
@@ -354,7 +354,7 @@ class MatrixH_of_v(_MatrixH_of_v_small):
     @cached
     def dd(self, v):
         fe = super(MatrixH_of_v, self).dd(v)
-        ret = blowup_matrix(False, self.D.matrix_dims, fe)
+        ret = blowup_matrix(False, fe)
         for i, j in product(*list(map(range, self.D.matrix_dims))):
             ret[i, j, :, i, j, :, i, j, :] = fe[i, j]
         pind = self.D.matrix_dims[0] * self.D.matrix_dims[1] * fe.shape[-1]
