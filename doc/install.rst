@@ -20,6 +20,7 @@ Apart from the packages in the `python standard library <https://docs.python.org
 - `numpy <http://www.numpy.org/>`_,
 - `matplotlib <https://matplotlib.org/>`_,
 - `decorator <https://pypi.org/project/decorator/>`_,
+- `h5py <https://www.h5py.org/>`_ (this is also needed in TRIQS),
 - ``IPython`` and ``ipywidgets``, optional, for :py:class:`.JupyterPlotMaxEnt`,
 - `sphinx <http://www.sphinx-doc.org>`_, optional, including extensions and ``numpydoc`` (if ``USE_TRIQS=OFF``) for the documentation, and
 - ``coverage``, optional, for the ``TEST_COVERAGE`` feature.
