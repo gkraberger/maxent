@@ -20,41 +20,54 @@
 from __future__ import absolute_import, print_function
 from triqs_maxent import *
 from triqs_maxent.tau_maxent import *
-from triqs_maxent.triqs_support import *
-if if_triqs_1():
-    from pytriqs.gf.local import *
-elif if_triqs_2():
-    from pytriqs.gf import *
 import numpy as np
 import copy
 
-# Create 2x2 test GfImFreq
-G_iw = GfImFreq(beta=40, indices=[0, 1], n_points=100)
-G_iw[0, 0] << SemiCircular(0.2)
-G_iw[1, 1] << SemiCircular(0.5)
+# Note that generating data requires TRIQS 2.0
+generate_data = False
 
-# Rotate
-theta = np.pi / 8.0
-R = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-G_iw_rot = copy.deepcopy(G_iw)
-G_iw_rot.from_L_G_R(R, G_iw, R.transpose())
+if generate_data:
+    from pytriqs.gf import *
+
+    # Create 2x2 test GfImFreq
+    G_iw = GfImFreq(beta=40, indices=[0, 1], n_points=100)
+    G_iw[0, 0] << SemiCircular(0.2)
+    G_iw[1, 1] << SemiCircular(0.5)
+
+    # Rotate
+    theta = np.pi / 8.0
+    R = np.array([[np.cos(theta), -np.sin(theta)],
+                  [np.sin(theta), np.cos(theta)]])
+    G_iw_rot = copy.deepcopy(G_iw)
+    G_iw_rot.from_L_G_R(R, G_iw, R.transpose())
+
+    np_tau = len(G_iw_rot.mesh) + 1
+    G_tau = GfImTime(beta=G_iw_rot.mesh.beta,
+                     target_shape=tuple(),
+                     n_points=np_tau)
+    G_tau.set_from_inverse_fourier(G_iw_rot[0, 1])
+
+    tau = np.array(list(G_tau.mesh.values())).real
+
+    np.savetxt('tau_maxent_off.dat',
+               np.column_stack((tau, G_tau.data.real)))
+
+data = np.loadtxt('tau_maxent_off.dat')
 
 # TauMaxEnt for the 0,1 element
 tm_0_1 = TauMaxEnt(cost_function='PlusMinus')
-tm_0_1.set_G_iw(G_iw_rot[0, 1])
 np.random.seed(666)
-tm_0_1.set_G_tau_data(tm_0_1.tau, tm_0_1.G + 1.e-6 *
-                      np.random.randn(len(tm_0_1.G)))
+tm_0_1.set_G_tau_data(data[:, 0], data[:, 1] + 1.e-6 *
+                      np.random.randn(len(data[:, 1])))
 tm_0_1.maxent_loop.cost_function.d_dv = False
 tm_0_1.alpha_mesh = LogAlphaMesh(alpha_min=0.5, alpha_max=500, n_points=6)
 tm_0_1.set_error(1.e-6)
 
 # TauMaxEnt for the 1,0 element
 tm_1_0 = TauMaxEnt(cost_function='PlusMinus')
-tm_1_0.set_G_iw(G_iw_rot[0, 1])
 np.random.seed(7405926)
-tm_1_0.set_G_tau_data(tm_1_0.tau, tm_1_0.G + 1.e-6 *
-                      np.random.randn(len(tm_1_0.G)))
+tm_1_0.set_G_tau_data(data[:, 0], data[:, 1] + 1.e-6 *
+                      np.random.randn(len(data[:, 1])))
 tm_1_0.maxent_loop.cost_function.d_dv = False
 tm_1_0.alpha_mesh = LogAlphaMesh(alpha_min=0.5, alpha_max=500, n_points=6)
 tm_1_0.set_error(1.e-6)
