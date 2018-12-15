@@ -9,8 +9,11 @@ Some things to consider:
 - Please, document your code; depending on the nature of the contribution,
   just updating the reference (e.g., just by including doc comments) might
   be enough. Sometimes, writing a page in ``doc/guide`` is desirable.
-- Please, test your code by writing a unit test to the ``test/python``
-  directory.
+- Please, test your code by writing a unit test to the ``test/``
+  directory. If it tests some general feature, do not make your test depend
+  on TRIQS functionality and put it in the subfolder ``general``.
+  If, however, it tests something related to the TRIQS interface of the code,
+  put it in the ``triqs`` subfolder. You may then use TRIQS functionality.
 - If your pull request adds a feature or something else that the users
   should be informed about, add a short line to the file ``doc/versions.rst``
   (in the section "Changes since the last version").

@@ -20,6 +20,7 @@ Changes with respect to the last release:
   necessary to continue complex spectral functions in one go. Therefore, this is only interesting for
   using the :py:class:`.IOmegaKernel` or for the full matrix formalism which will be provided.)
 - Introduction of the :py:class:`.VerbosityFlags` and a new verbosity management system (as `suggested <https://github.com/TRIQS/maxent/issues/3>`_ by Marcel Klett)
+- New test layout, with more TRIQS-independent tests (for the typical user, nothing changes).
 
 
 Version 0.9, 2018-08-24
