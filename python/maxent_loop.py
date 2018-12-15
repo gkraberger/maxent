@@ -194,7 +194,7 @@ class MaxEntLoop(object):
                                   chi2_min)
 
         # the initial value of v
-        H = np.empty(self.chi2.input_size)
+        H = np.empty(self.chi2.input_shape)
         right_side = (
             self.D.D if self.A_init is None else self.A_init) * self.omega.delta
         right_side_slice = [np.newaxis] * H.ndim

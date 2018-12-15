@@ -48,6 +48,7 @@ from .preblur import *
 from .kernels import KernelSVD
 from functools import wraps
 import copy
+from collections import namedtuple
 
 
 def safelog(A):
@@ -332,8 +333,12 @@ class Chi2(DoublyDerivableFunction):
     data_variable = property(get_data_variable, set_data_variable)
 
     @property
-    def input_size(self):
+    def input_shape(self):
         return self.G.shape[:-1] + (self.K.K.shape[1],)
+
+    @property
+    def output_shape(self):
+        return tuple()
 
     @property
     def axes_preference(self):
@@ -436,7 +441,7 @@ class ComplexChi2(Chi2):
             self.d2[:, 1, :, 1] = np.real(E)
 
     @property
-    def input_size(self):
+    def input_shape(self):
         return self.G.shape[:-1] + (self.K.K.shape[1], 2)
 
     @property
@@ -487,12 +492,12 @@ class Entropy(DoublyDerivableFunction):
     omega = property(get_omega, set_omega)
 
     @property
-    def input_size(self):
+    def input_shape(self):
         return (len(self.D.D),)
 
     @property
-    def axes_preference(self):
-        return (0,)
+    def output_shape(self):
+        return tuple()
 
 
 class NormalEntropy(Entropy):
@@ -525,6 +530,30 @@ class NormalEntropy(Entropy):
         # we need this to prevent a NaN in the calculation
         A[np.where(np.abs(A) <= 1.e-100)] = 1.e-100
         return -np.diag(1.0 / A)
+
+
+class ComplexNormalEntropy(NormalEntropy):
+    """ Discards the imaginary part. """
+
+    @cached
+    def f(self, A):
+        return super(ComplexNormalEntropy, self).f(view_complex(A).real)
+
+    @cached
+    def d(self, A):
+        ret = super(ComplexNormalEntropy, self).d(view_complex(A).real)
+        return np.column_stack((ret, ret * 0))
+
+    @cached
+    def dd(self, A):
+        dd_re = super(ComplexNormalEntropy, self).dd(view_complex(A).real)
+        dd = np.zeros((dd_re.shape[0], 2, dd_re.shape[1], 2))
+        dd[:, 0, :, 0] = dd_re
+        return dd
+
+    @property
+    def input_shape(self):
+        return (len(self.D.D), 2)
 
 
 class PlusMinusEntropy(NormalEntropy):
@@ -617,12 +646,8 @@ class ComplexPlusMinusEntropy(PlusMinusEntropy):
         return dd
 
     @property
-    def input_size(self):
+    def input_shape(self):
         return (len(self.D.D), 2)
-
-    @property
-    def axes_preference(self):
-        return (0, 1)
 
 
 class AbsoluteEntropy(Entropy):
@@ -715,12 +740,12 @@ class GenericH_of_v(DoublyDerivableFunction, InvertibleFunction):
     omega = property(get_omega, set_omega)
 
     @property
-    def input_size(self):
+    def input_shape(self):
         return (len(self.K.S),)
 
     @property
-    def axes_preference(self):
-        return (0,)
+    def output_shape(self):
+        return self.D.D.shape
 
 
 class NormalH_of_v(GenericH_of_v):
@@ -871,12 +896,12 @@ class ComplexPlusMinusH_of_v(PlusMinusH_of_v):
                 view_complex(A)), reshape=False)
 
     @property
-    def input_size(self):
+    def input_shape(self):
         return (2 * len(self.K.S),)
 
     @property
-    def axes_preference(self):
-        return (0,)
+    def output_shape(self):
+        return self.D.D.shape + (2,)
 
 
 class NoExpH_of_v(GenericH_of_v):

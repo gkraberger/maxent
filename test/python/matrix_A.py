@@ -90,7 +90,8 @@ d2 = c2_matrix.dd()
 for i, j in product(range(2), range(2)):
     assert np.max(np.abs(c2_elements[i, j].dd() - d2[i, j])) < 1.e-13
 
-bu = lambda x: blowup_matrix(True, x)
+bu = lambda x: blowup_second_derivative(x, chi2_matrix.input_shape,
+                                        chi2_matrix.output_shape)
 
 assert chi2_matrix.check_derivatives(
     A * 0.1, chi2_matrix.f(A * 0.1), extra_func_dd=bu)

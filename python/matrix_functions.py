@@ -21,7 +21,7 @@
 This file defines a bunch of functions that represent physical
 functions in the MaxEnt formalism, in the matrix version.
 """
-from __future__ import absolute_import, print_function
+from __future__ import absolute_import, print_function, division
 
 import numpy as np
 from .maxent_util import *
@@ -29,17 +29,86 @@ from .functions import *
 from itertools import product
 
 
-def blowup_matrix(scalar, fe):
-    matrix_dims = fe.shape[:2]
-    n_rep = 2 if scalar else 3
-    non_matrix_dims = fe.shape[2:][:(fe.ndim - 2) / n_rep]
-    N_per_matrix = np.prod(non_matrix_dims)
-    ret = np.zeros((matrix_dims + (N_per_matrix,)) * n_rep,
-                   dtype=fe.dtype)
-    for i, j in product(*list(map(range, matrix_dims))):
-        ret[(i, j, slice(None)) * n_rep] = \
-            fe[i, j].reshape((N_per_matrix, ) * n_rep)
-    ret = ret.reshape((matrix_dims + non_matrix_dims) * n_rep)
+def blowup_first_derivative(small_matrix, input_shape, output_shape):
+    matrix_shape = small_matrix.shape[:2]
+    # number of matrix elements
+    N_matrix = int(np.prod(matrix_shape))
+    # total number of input and output elements
+    N_input = int(np.prod(input_shape))
+    N_output = int(np.prod(output_shape))
+    # number of input and output elements per matrix dimension
+    n_input = int(N_input // N_matrix)
+    n_output = int(N_output // N_matrix)
+
+    # the "small" convention means that small_matrix has
+    # N_matrix * n_output * n_input * n_input
+    # elements
+
+    assert small_matrix.size == N_matrix * \
+        (n_output if n_output > 0 else 1) * n_input
+
+    # we handle the scalar output case separately because it has no
+    # matrix structure
+    matrix_output_shape = matrix_shape + (n_output,)
+    if output_shape == tuple():
+        matrix_output_shape = tuple()
+
+    ret = np.zeros(matrix_output_shape +
+                   matrix_shape + (n_input,),
+                   dtype=small_matrix.dtype)
+
+    rep = 2
+    if output_shape == tuple():
+        rep = 1
+
+    for i, j in product(*list(map(range, matrix_shape))):
+        ret[(i, j, slice(None)) * rep] = small_matrix[i, j].reshape(
+            (tuple() if n_output == 0 else (n_output,)) + (n_input,))
+
+    ret = ret.reshape((output_shape + input_shape))
+
+    return ret
+
+
+def blowup_second_derivative(small_matrix, input_shape, output_shape):
+    matrix_shape = small_matrix.shape[:2]
+    # number of matrix elements
+    N_matrix = int(np.prod(matrix_shape))
+    # total number of input and output elements
+    N_input = int(np.prod(input_shape))
+    N_output = int(np.prod(output_shape))
+    # number of input and output elements per matrix dimension
+    n_input = int(N_input // N_matrix)
+    n_output = int(N_output // N_matrix)
+
+    # we handle the scalar output case separately because it has no
+    # matrix structure
+    matrix_output_shape = matrix_shape + (n_output,)
+    if output_shape == tuple():
+        matrix_output_shape = tuple()
+
+    # the "small" convention means that small_matrix has
+    # N_matrix * n_output * n_input * n_input
+    # elements
+
+    assert small_matrix.size == N_matrix * \
+        (n_output if n_output > 0 else 1) * n_input * n_input
+
+    ret = np.zeros(matrix_output_shape +
+                   matrix_shape + (n_input,) +
+                   matrix_shape + (n_input,),
+                   dtype=small_matrix.dtype)
+
+    rep = 3
+    if output_shape == tuple():
+        rep = 2
+
+    for i, j in product(*list(map(range, matrix_shape))):
+        ret[(i, j, slice(None)) * rep] = small_matrix[i, j].reshape(
+            (tuple() if n_output == 0 else (n_output,)) + (n_input, n_input))
+
+    ret = ret.reshape((output_shape + input_shape + input_shape))
+
     return ret
 
 
@@ -163,6 +232,14 @@ class MatrixChi2(Chi2, GenericMatrix):
         return self._forevery('dd', H)
 
     @property
+    def input_shape(self):
+        return self.G.shape[:2] + self.sub[0][0].input_shape
+
+    @property
+    def output_shape(self):
+        return tuple()
+
+    @property
     def axes_preference(self):
         return (2, 0, 1)
 
@@ -229,12 +306,12 @@ class MatrixEntropy(Entropy, GenericMatrix):
         return self._forevery('dd', H)
 
     @property
-    def input_size(self):
-        return self.D.matrix_dims + (len(self.D.D),)
+    def input_shape(self):
+        return self.D.matrix_dims + self.sub[i][j].input_shape
 
     @property
-    def axes_preference(self):
-        return (2, 0, 1)
+    def output_shape(self):
+        return tuple()
 
 
 class _MatrixH_of_v_small(GenericH_of_v, GenericMatrix):
@@ -312,6 +389,14 @@ class _MatrixH_of_v_small(GenericH_of_v, GenericMatrix):
     def inv(self, H):
         return self._forevery('inv', H).reshape(-1)
 
+    @property
+    def input_shape(self):
+        return (np.prod(self.D.matrix_dims + self.sub[0][0].input_shape),)
+
+    @property
+    def output_shape(self):
+        return self.D.matrix_dims + self.sub[0][0].output_shape
+
 
 class MatrixH_of_v(_MatrixH_of_v_small):
     r""" The mapping H(v) for matrix-valued H
@@ -345,20 +430,14 @@ class MatrixH_of_v(_MatrixH_of_v_small):
     @cached
     def d(self, v):
         fe = super(MatrixH_of_v, self).d(v)
-        ret = np.zeros(fe.shape[:3] + self.D.matrix_dims + (fe.shape[-1],),
-                       dtype=fe.dtype)
-        for i, j in product(*list(map(range, self.D.matrix_dims))):
-            ret[i, j, :, i, j, :] = fe[i, j]
-        return ret.reshape(fe.shape[:3] + (-1,))
+        ret = blowup_first_derivative(fe, self.input_shape, self.output_shape)
+        return ret
 
     @cached
     def dd(self, v):
         fe = super(MatrixH_of_v, self).dd(v)
-        ret = blowup_matrix(False, fe)
-        for i, j in product(*list(map(range, self.D.matrix_dims))):
-            ret[i, j, :, i, j, :, i, j, :] = fe[i, j]
-        pind = self.D.matrix_dims[0] * self.D.matrix_dims[1] * fe.shape[-1]
-        return ret.reshape(fe.shape[:3] + (pind, pind))
+        ret = blowup_second_derivative(fe, self.input_shape, self.output_shape)
+        return ret
 
     @cached
     def inv(self, H):
